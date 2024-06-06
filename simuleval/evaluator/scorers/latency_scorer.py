@@ -106,7 +106,7 @@ class LatencyScorer:
     @classmethod
     def from_args(cls, args: Namespace):
         return cls(
-            computation_aware=args.computation_aware,
+            computation_aware=False,
             use_ref_len=not args.no_use_ref_len,
         )
 
@@ -505,7 +505,8 @@ class DiscontinuitySumScorer(LatencyScorer):
     """
 
     def compute(self, ins: Instance):
-        assert isinstance(ins, SpeechOutputInstance)
+        if not isinstance(ins, SpeechOutputInstance):
+            ins.compute_silences()
         return sum(ins.silences)
 
 
@@ -519,7 +520,8 @@ class DiscontinuityAveScorer(LatencyScorer):
     """
 
     def compute(self, ins: Instance):
-        assert isinstance(ins, SpeechOutputInstance)
+        if not isinstance(ins, SpeechOutputInstance):
+            ins.compute_silences()
         if len(ins.silences) == 0:
             return 0
         return sum(ins.silences) / len(ins.silences)
@@ -535,7 +537,8 @@ class DiscontinuityNumScorer(LatencyScorer):
     """
 
     def compute(self, ins: Instance):
-        assert isinstance(ins, SpeechOutputInstance)
+        if not isinstance(ins, SpeechOutputInstance):
+            ins.compute_silences()
         return len(ins.silences)
 
 
@@ -567,9 +570,22 @@ class EndOffsetScorer(LatencyScorer):
         if isinstance(ins, SpeechOutputInstance) or (
             isinstance(ins, LogInstance) and len(ins.intervals) > 0
         ):
-            delays = [start + duration for start, duration in ins.intervals]
+            if not self.computation_aware:
+                delays = [start + duration for start, duration in ins.intervals]
+            else:
+                ins.compute_computation_aware_offset()
+                delays = [start + duration for start, duration in ins.intervals_ca]
         return delays[-1] - source_length
 
+@register_latency_scorer("ComputationTime")
+class ComputationTimeScorer(LatencyScorer):
+
+    def compute(self, ins: Instance):
+        delays = ins.delays
+        elapsed = ins.elapsed
+        differences = [a - b for a, b in zip(elapsed, delays)]
+
+        return sum(differences) / len(differences)
 
 @register_latency_scorer("RTF")
 class RTFScorer(LatencyScorer):
@@ -610,6 +626,7 @@ def speechoutput_alignment_latency_scorer(scorer_class):  # noqa C901
             return super().__call__(instances)
 
         def prepare_alignment(self, instances):
+            '''
             try:
                 subprocess.check_output(
                     "mfa version", shell=True, stderr=subprocess.STDOUT
@@ -618,6 +635,7 @@ def speechoutput_alignment_latency_scorer(scorer_class):  # noqa C901
                 logger.error(grepexc.output.decode("utf-8").strip())
                 logger.error("Please make sure the mfa>=2.0.6 is correctly installed. ")
                 sys.exit(1)
+            '''
 
             output_dir = Path(instances[0].prediction).absolute().parent.parent
             align_dir = output_dir / "align"

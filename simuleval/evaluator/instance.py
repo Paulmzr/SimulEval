@@ -390,7 +390,7 @@ class SpeechOutputInstance(Instance):
             "delays": self.delays,
             "durations": self.durations,
             "prediction_offset": prediction_offset,
-            "elapsed": [],
+            "elapsed": self.elapsed,
             "intervals": self.intervals,
             "prediction_length": len(samples) / self.target_sample_rate,
             "source_length": self.source_length,
@@ -484,3 +484,42 @@ class LogInstance:
             return len(self.target_spm_model.encode(self.reference, out_type=str))
         else:
             raise NotImplementedError
+
+    def compute_silences(self):
+        self.silences = []
+        if len(self.durations) > 0:
+            # start from the first segment offset
+            start = prev_end = self.delays[0]
+
+            for i, delay in enumerate(self.delays):
+                start = max(prev_end, delay)
+
+                if start > prev_end:
+                    # Wait source speech, add discontinuity with silence          
+                    self.silences.append(start - prev_end)
+
+                duration = self.durations[i]
+                prev_end = start + duration
+    
+    def compute_computation_aware_offset(self):
+        self.silences_ca = []
+        self.intervals_ca = []
+        if len(self.durations) > 0:
+            # start from the first segment offset
+            start = prev_end = prediction_offset_ca = self.elapsed[0]
+
+            for i, delay in enumerate(self.elapsed):
+                start = max(prev_end, delay)
+
+                if start > prev_end:
+                    # Wait source speech, add discontinuity with silence
+                    self.silences_ca.append(start - prev_end)
+
+                duration = self.durations[i]
+                prev_end = start + duration
+                self.intervals_ca.append([start, duration])
+        else:
+            # For empty prediction
+            prediction_offset_ca = self.source_length
+                
+            

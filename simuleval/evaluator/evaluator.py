@@ -254,6 +254,12 @@ class SentenceLevelEvaluator(object):
                     if isinstance(self.dataloader, IterableDataloader)
                     else sample
                 )
+                input_segment = instance.send_source(15)
+                output_segment = system.pushpop(input_segment)
+                instance.receive_prediction(output_segment)
+                if instance.finish_prediction:
+                    system.reset()
+                
                 while not self.is_finished(instance):
                     input_segment = instance.send_source(self.source_segment_size)
                     output_segment = system.pushpop(input_segment)

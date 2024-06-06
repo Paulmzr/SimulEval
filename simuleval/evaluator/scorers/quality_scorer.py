@@ -4,6 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+import os
 import logging
 import string
 import subprocess
@@ -177,6 +178,12 @@ class ASRSacreBLEUScorer(QualityScorer):
         wav_dir = Path(instances[0].prediction).absolute().parent
         root_dir = wav_dir.parent
         transcripts_path = root_dir / "asr_transcripts.txt"
+        
+        if os.path.exists(transcripts_path):
+            with open(transcripts_path, "r") as f:
+                transcripts = [line.strip() for line in f]
+            return transcripts
+        
         asr_cmd_bash_path = root_dir / "asr_cmd.bash"
 
         # This is a dummy reference. The bleu score will be compute separately.
